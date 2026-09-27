@@ -117,13 +117,13 @@ def build_html(data):
     """
 
 
-def generate_pdf():
+def generate_pdf(path="reports/test.pdf"):
     data = getReportData()
     data["all_books"] = getAllBooks()
 
     html = build_html(data)
 
-    Path("reports").mkdir(exist_ok=True)
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
@@ -132,14 +132,14 @@ def generate_pdf():
         page.set_content(html)
 
         page.pdf(
-            path="reports/test.pdf",
+            path=path,
             format="A4",
             print_background=True
         )
 
         browser.close()
 
-    print("Created reports/test.pdf")
+    print(f"Created {path}")
 
 
 if __name__ == "__main__":
