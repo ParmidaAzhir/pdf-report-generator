@@ -40,3 +40,20 @@ def getReportData():
         "top_5_expensive": top_5,
         "books_per_rating": books_per_rating
     }
+
+
+def getAllBooks():
+    conn = sqlite3.connect("report.db")
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT title, price, rating, url
+        FROM books
+        ORDER BY id
+    """)
+
+    books = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+
+    return books
