@@ -1,11 +1,13 @@
 import sqlite3
-from datetime import datetime
+from datetime import datetime, date
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 
 from render_report import generate_pdf
+
 
 app = FastAPI()
 
@@ -34,11 +36,47 @@ def create_reports_table():
 create_reports_table()
 
 
-@app.post("/reports", status_code=201)
-def create_report():
+class ReportRequest(BaseModel):
+    force: bool = False
+
+
+@app.post("/reports")
+def create_report(
+    response: Response,
+    request: ReportRequest | None = None
+):
+    force = request.force if request else False
+
     conn = sqlite3.connect("report.db")
     cursor = conn.cursor()
 
+    today = date.today().isoformat()
+
+    # Check whether a report was already created today
+    if not force:
+        cursor.execute("""
+            SELECT id, path
+            FROM reports
+            WHERE substr(created_at, 1, 10) = ?
+            ORDER BY id DESC
+            LIMIT 1
+        """, (today,))
+
+        existing_report = cursor.fetchone()
+
+        if existing_report:
+            report_id = existing_report[0]
+
+            conn.close()
+
+            response.status_code = 200
+
+            return {
+                "id": report_id,
+                "file": f"/reports/{report_id}/file"
+            }
+
+    # Create a new report
     created_at = datetime.now().isoformat()
 
     cursor.execute(
@@ -58,6 +96,8 @@ def create_report():
     conn.close()
 
     generate_pdf(path)
+
+    response.status_code = 201
 
     return {
         "id": report_id,
@@ -80,7 +120,10 @@ def get_report(report_id: int):
     conn.close()
 
     if report is None:
-        raise HTTPException(status_code=404, detail="Report not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Report not found"
+        )
 
     return {
         "id": report["id"],
@@ -104,12 +147,18 @@ def download_report(report_id: int):
     conn.close()
 
     if report is None:
-        raise HTTPException(status_code=404, detail="Report not found")
+        raise HTTPException(
+            status_code=404,
+            detail="Report not found"
+        )
 
     path = report[0]
 
     if not Path(path).exists():
-        raise HTTPException(status_code=404, detail="PDF file not found")
+        raise HTTPException(
+            status_code=404,
+            detail="PDF file not found"
+        )
 
     return FileResponse(
         path,
