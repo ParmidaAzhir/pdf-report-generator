@@ -182,4 +182,4 @@ This skips the duplicate check and generates a new report.
 
 ## Generated PDF
 
-![Generated PDF report](screenshots/report-page-1.png)
+![Generated PDF report](screenshots/page-1.png)
